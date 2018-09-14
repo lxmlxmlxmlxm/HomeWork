@@ -14,6 +14,8 @@ lagou_position
     join china_city p on c.parentId = p.id and p.depth=1;
 北京	 北京市	东城区 首先把省市区 分离到lagou_city01表上;
 
+>•备份迁移需要在系统停机的情况下进行
+
     create table lagou_city as
     select d.id, p.cityName as province, c.cityName as city, d.cityName as district from
       (select * from china_city where depth=3) d
@@ -31,9 +33,29 @@ lagou_position
 
 >使用 union 语句虽然会简化语句，但效率会比较低
 
+    create table lagou_position
+    as
+    select pid, cid as city, company_id as company, position, field, salary_min, salary_max, workyear, education, ptype, pnature, advantage, published_at, updated_at from
+    (
+     select p.*, c.cid from (select * from lagou_position_bk where district is null) p
+        join lagou_city c on c.city like concat(p.city, '%') and c.district is null
+     union all
+     select p.*, c.cid from (select * from lagou_position_bk where district is not null) p
+       join lagou_city c on c.city like concat(p.city, '%') and c.district like concat(p.district, '%')
+      ) as ppp;
 通过lagou_city表与lagou_position表中的地址相匹配，组合成一张临时表，通过创建一个新的表将需要的字段放进去组合成一张新的表最主要的目的就是要把city列与district列分离出来将lagou_city的city_id列作为外键插入到其中，做到地址表的分离;这样我们就可以做到工作信息，地区信息，分类信息，公司信息分离出来了;
 
-    
+         create table lagou_position as
+         select pid, cid as city, company_id as company, position, field, salary_min, salary_max, workyear, education, ptype, pnature, advantage, published_at, updated_at
+         from (select * from lagou_position_bk where district is null) p
+           join lagou_city c on c.city like concat(p.city, '%') and c.district is null;
+         
+         insert into lagou_position
+         select pid, cid as city, company_id as company, position, field, salary_min, salary_max, workyear, education, ptype, pnature, advantage, published_at, updated_at
+         from (select * from lagou_position_bk where district is not null) p
+           join lagou_city c on c.city like concat(p.city, '%') and c.district like concat(p.district, '%');
+
+
 
 >>>总结：首先要把老师提出的问题深度去理解，要对多表查询熟练掌握。
 一开始不能急着去敲代码，而是先用思维导图，把自己的思路捋清楚。这样才有一个整体概念，去实现。
